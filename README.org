@@ -1,0 +1,102 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline
+#+options: author:t broken-links:nil c:nil creator:nil
+#+options: d:(not "LOGBOOK") date:t e:t email:nil f:t inline:t num:t
+#+options: p:nil pri:nil prop:nil stat:t tags:t tasks:t tex:t
+#+options: timestamp:t title:t toc:t todo:t |:t
+#+title: README
+#+date: <2022-04-01 Fri>
+#+author: Panayotis Manganaris
+#+email: pmangana@purdue.edu
+#+language: en
+#+select_tags: export
+#+exclude_tags: noexport
+#+creator: Emacs 29.0.50 (Org mode 9.5.2)
+#+cite_export:
+* Overview
+This README also serves as a design document. Any heading marked TODO
+may as well be wishful thinking.
+
+yogi is a pandas extension intended to ease the process of performing
+machine learning using standard libraries, and analyzing the tabulated
+results, while retaining the convenience and power of the pandas data
+management system.
+
+It focuses on preserving the intuitive pandas API for implementing
+feature engineering and machine learning workflows
+
+It leverages the Pandas table representations to ensure data is never
+presented to the user as an inscrutable array, hopefully accelerating
+model design and exploration and improving the readability and
+share-ability of scripts
+* NEXT Models
+:STATUSLOG:
+- State "NEXT"       from              [2022-02-13 Sun 16:02]
+:END:
+yogi tries to unify popular machine learning apis with the pandas
+API through dedicated dataframe accessors that strive to mimic
+familiar workflows
+** NEXT scikit-learn
+:STATUSLOG:
+- State "NEXT"       from              [2022-03-28 Mon 12:41]
+:END:
+- [-] sk estimators API
+  - [X] inductive transformers
+  - [ ] decompositions need to rename columns
+  - [ ] supervised transformers
+  - [ ] predictive/classifier estimators 
+  - [ ] transductive transformers
+- [ ] testing scikit-contrib tools:
+  - [ ] pysisso by [[cite:&pysisso2020]] implementing [[cite:&ouyang-2018-sisso]]
+** TODO tensorflow
+  - early wip
+* Installation
+cmcl is very early in development.
+** Install by cloning the repository
+yogi can be installed into a standard python environment.  It is a
+poetry project and may be installed using pip.
+
+proceed to run your python process/jupyter kernel of choice and enjoy.
+* Contribution
+Yes Please.
+
+To create clean development environment, simply fork/clone the
+repository and the poetry.lock file will take care of dependency
+management.
+
+* TODO Usage Examples
+** Quick Scikit-Learn Random Forest Regression
+#+begin_src jupyter-python :session "py" :exports "both" :results "raw drawer"
+  import pandas as pd
+  from yogi.data.frame import *
+  ## load data
+  df = pd.read_whatever(data)
+  #df.Formula or df.formula must exist as a data column.
+  #there's a fairly broad range of acceptable formula grammer
+  comp_matrix = df.ft.comp()
+  target_prediction, shuffled_comp_matrix, regressor_obj = df.target.model.RFR(comp_matrix)
+  total_df = pd.concat([df, comp_matrix, target_prediction], axis=1)
+#+end_src
+The dataframe index is shuffled but preserved. index-in = index-out.
+So, the predictions may be merged/concatenated with the original data.
+** TODO Pandas-ified model metric evaluations
+a convenient pandas centric api for quantifying model performance via
+familiar sci-kit learn methods is being designed
+** learning curve
+test efficacy of a model for multiple training set sizes while
+retaining awareness of record indices
+** TODO hyperparameter optimization
+*** grid search
+*** beyesian search
+** TODO inverse design
+mannodi and kern style GA
+** TODO model improvement guide
+ideally, cmcl will in some limited way enable researchers to "master
+their dataset" relatively painlessly
+* External Datasets 
+compare model to experimental results for validation
+1. [[cite:&almora-2020-devic-perfor]] meta-analysis of Perovskite PV devices.
+2. more literature compounds.
+3. Materials Zone aggregate database.
+* Citations
+bibliographystyle:authordate1
+bibliography:~/org/bibliotex/bibliotex.bib
