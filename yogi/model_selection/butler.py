@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 def collect_top_rankings(results:pd.DataFrame, topN:int = 10) -> pd.DataFrame:
     ranks = results.filter(like='rank').columns
     rank_podiums = []
@@ -45,23 +48,33 @@ def rank_score(setting:str, finalists_ranks:pd.DataFrame, weights=None) -> float
 def score(setting:str, finalists_settings:pd.Series, finalists_ranks:pd.DataFrame, weights=None) -> float:
     return get_prob(setting, finalists_settings) + rank_score(setting, finalists_ranks, weights)
 
+def pick_top_settings(settings:list, setting_scores:list) -> list:
+    return [settings[np.argmax(setting_scores)]]
+
+def pick_over_average_settings(settings:list, setting_scores:list) -> list:
+    return [setting for setting, score in zip(settings, setting_scores) if score >= np.average(setting_scores)]
+
 def reduce_grid_via_scoring_heuristic(settings:list,
                                       finalists_settings:pd.Series,
                                       finalists_ranks:pd.DataFrame,
-                                      weights=None) -> list:
+                                      weights=None,
+                                      strategy:str="oavg") -> list:
     setting_scores = []
     for setting in settings:
         setting_scores.append(score(setting, finalists_settings, finalists_ranks, weights=weights))
-
-    print(settings, setting_scores)
-
+    if strategy.casefold() == "oavg":
+        return pick_over_average_settings(settings, setting_scores), setting_scores
+    elif strategy.casefold() == "max":
+        return pick_top_settings(settings, setting_scores), setting_scores
 
 def reduce_grid_via_entropy_rules(grid:dict,
                                   grid_entropy_series:pd.Series,
                                   podium:pd.DataFrame,
-                                  weights=None) -> dict:
+                                  weights=None,
+                                  strategy:str="oavg") -> dict:
     finalists_ranks = podium.filter(like='rank', axis=1)
     new_grid = {}
+    grid_scores = {}
     for param, settings in grid.items():
         finalists_settings = podium.filter(like=param, axis=1).iloc[:,0]
         finalists_ranks = finalists_ranks.set_index(
@@ -74,15 +87,69 @@ def reduce_grid_via_entropy_rules(grid:dict,
         elif pd.isna(grid_entropy_series[param]):
             pass
         else:
-            new_grid[param] = reduce_grid_via_scoring_heuristic(settings,
+            reduced, scores = reduce_grid_via_scoring_heuristic(settings,
                                                                 finalists_settings,
                                                                 finalists_ranks,
-                                                                weights=weights)
-    return new_grid
+                                                                weights=weights,
+                                                                strategy=strategy)
+            new_grid[param] = reduced
+            grid_scores[param] = scores
+    return new_grid, grid_scores
 
-def recommend_next_grids(podium, grid_entropies, grids:list) -> list:
-    new_grids = []
+def recommend_next_grids(podium, grid_entropies, grids:list, weights=None, strategy:str="oavg") -> list:
+    recommendation = []
     for idx, grid in enumerate(grids):
-        new_grids.append(reduce_grid_via_entropy_rules(grid, grid_entropies.iloc[:, idx], podium))
-    return new_grids
+        recommendation.append(reduce_grid_via_entropy_rules(grid, grid_entropies.iloc[:, idx], podium,
+                                                            weights=weights, strategy=strategy))
+    new_grids = list(map(lambda x: x[0], recommendation))
+    score_summary = list(map(lambda x: x[1], recommendation))
+    return new_grids, score_summary
 
+def summarize_HPO(fitted_HPO_pipeline, gridspace:list, topN=10, metric_weights=None, strategy="oavg") -> list:
+    """
+    helper function for performing rigorous gridsearch
+
+    arguments:
+    fitted_HPO_pipline: a gridsearch (or other sklearn compliant
+          search) estimator containing a cv_results_ dictionary
+    gridspace: The list of dictionaries used to instantiate the search
+          cross-validator
+    topN: the N best performing estimators (according to each scoring
+          metric) to consider when narrowing the parameter space
+    metric_weights: defaults to a list of 1s of equal length to the
+          number of scoring metrics.
+
+    this parameter offers extensive control over the scoring huristic,
+    which is a sum of the probability of a setting appearing in the
+    topN candidates and the sum of the inverse rankings used to
+    collect the finalists. If high rank is more important than
+    representation in the distribution of finalist configuration,
+    evenly increase the weights over 1. If vice-versa, evenly
+    decrease. If a partiuclar scoring metric is more important,
+    increase it's weight.
+
+    strategy: finally, a string indicating the method for choosing
+           which parameter to keep. Currently "max" and "oavg" offer,
+           respectively, an aggressive cut (only the top scoring
+           parameter is kept) and a gentle cut (all parameters scoring
+           greater than the average are kept).
+
+    returns a tuple:
+    In first position: a dataframe summarizing the scoring process
+    In second position: The gridspaces are returned with low
+    performing settings (according to the scoring heuristic)
+    automatically discarded, for easy of iterating
+    """
+    results = pd.DataFrame(fitted_HPO_pipeline.cv_results_)
+    podium = collect_top_rankings(results=results, topN=topN)
+    grid_entropies = get_entropies(podium, gridspace)
+    next_grid, scores = recommend_next_grids(podium, grid_entropies, gridspace,
+                                             weights=metric_weights, strategy=strategy)
+    original = pd.DataFrame(gridspace).T
+    trim_summary = pd.DataFrame(next_grid).T
+    score_summary = pd.DataFrame(scores).T
+    original.rename(columns={k:"space_"+str(k) for k in trim_summary.columns}, inplace=True)
+    trim_summary.rename(columns={k:"next_"+str(k) for k in trim_summary.columns}, inplace=True)
+    score_summary.rename(columns={k:"scores_"+str(k) for k in score_summary.columns}, inplace=True)
+    grid_entropies.rename(columns={k:"entropy_"+str(k) for k in grid_entropies.columns}, inplace=True)
+    return pd.concat([original, grid_entropies, score_summary, trim_summary], axis=1), next_grid

@@ -27,7 +27,7 @@ feature engineering and machine learning workflows
 It leverages the Pandas table representations to ensure data is never
 presented to the user as an inscrutable array, hopefully accelerating
 model design and exploration and improving the readability and
-share-ability of scripts
+share-ability of research scripts
 * NEXT Models
 :STATUSLOG:
 - State "NEXT"       from              [2022-02-13 Sun 16:02]
