@@ -40,9 +40,14 @@ def get_entropies(podium:pd.DataFrame, grid=list) -> pd.DataFrame:
 def rank_score(setting:str, finalists_ranks:pd.DataFrame, weights=None) -> float:
     if weights == None:
         weights = [1]*finalists_ranks.shape[1] 
-    rank_scores_per_metric = finalists_ranks.applymap(lambda x: x**-1).loc[setting]
-    weighted_rank_scores_per_metric = np.dot(rank_scores_per_metric, weights)
-    return np.sum(weighted_rank_scores_per_metric)
+    try:
+        rank_scores_per_metric = finalists_ranks.applymap(lambda x: x**-1).loc[setting]
+        weighted_rank_scores_per_metric = np.dot(rank_scores_per_metric, weights)
+        return np.sum(weighted_rank_scores_per_metric)
+    except KeyError: 
+        #if a certain setting doesn't make it to finals at all, there'll be a KeyError
+        #instead, ranking it zero
+        return 0
 
 
 def score(setting:str, finalists_settings:pd.Series, finalists_ranks:pd.DataFrame, weights=None) -> float:
@@ -102,7 +107,7 @@ def recommend_next_grids(podium, grid_entropies, grids:list, weights=None, strat
         recommendation.append(reduce_grid_via_entropy_rules(grid, grid_entropies.iloc[:, idx], podium,
                                                             weights=weights, strategy=strategy))
     new_grids = list(map(lambda x: x[0], recommendation))
-    score_summary = list(map(lambda x: x[1], recommendation))
+    score_summary = list(map(lambda x: {k:[round(s, 2) for s in v] for k,v in x[1].items()}, recommendation))
     return new_grids, score_summary
 
 def summarize_HPO(fitted_HPO_pipeline, gridspace:list, topN=10, metric_weights=None, strategy="oavg") -> list:
