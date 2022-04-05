@@ -12,7 +12,7 @@
 #+exclude_tags: noexport
 #+creator: Emacs 29.0.50 (Org mode 9.5.2)
 #+cite_export:
-* Overview
+* Not Your Average (Panda) Bear
 This README also serves as a design document. Any heading marked TODO
 may as well be wishful thinking.
 
