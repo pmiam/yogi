@@ -1,5 +1,5 @@
 import pandas as pd
-import numpys as np
+import numpy as np
 from functools import partial
 
 def _build_frame(tarray:np.ndarray, varray:np.ndarray, index,
