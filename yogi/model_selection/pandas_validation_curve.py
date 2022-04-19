@@ -42,7 +42,7 @@ def pandas_validation_curve(curve_maker, *args, **kwargs) -> pd.DataFrame:
     #intercepting scoring arg
     param_range = kwargs.get('param_range', None)
     train_sizes = kwargs.get('train_sizes', None)
-    if list(param_range):
+    if param_range is not None:
         index = param_range #index in case of validation_curve
         index_name = kwargs.get('param_name')
     curve_maker = partial(curve_maker, *args, **kwargs)
