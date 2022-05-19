@@ -11,20 +11,50 @@ import re
 from sklearn.compose import make_column_transformer
 from sklearn.compose import make_column_selector
 
+def _serialize_columns(df:pd.DataFrame):
+    """
+    Ensure pandas columns are always a series of strings, even if
+    MultiIndexed.
+    Base method useful for circumventing column name futurewarning via
+    yogi decorator.
+    """
+    new_col_labels = []
+    for label in df.columns:
+        new_col_labels.append(json.dumps(label))
+    df.columns=new_col_labels
+    return df
+
+def _deserialize_columns(df:pd.DataFrame):
+    """
+    reconstruct tuple from earlier json.dumps prefixing
+    the highest level label names as needed
+    """
+    def prefix_last_label(prefix_label):
+        if prefix_label[0] == "[":
+            return prefix_label
+        else:
+            ll = re.split("__", prefix_label)
+            sll = list(re.split(",", ll[-1]))
+            lll = sll[-1]
+            lll = lll.insert(1, ll[:-1]+"__")
+            last = "".join(lll)
+            sll[-1] = last
+            return "".join(sll)
+    final_col_labels = []
+    for dump_label in df.columns:
+        ready_label = prefix_last_label(dump_label)
+        final_col_labels.append(tuple(json.loads(ready_label)))
+    df.columns = pd.MultiIndex.from_tuples(final_col_labels)
+    return df
+
 @pd.api.extensions.register_dataframe_accessor("sk")
 class SciKitAccessor():
     """
-    Define and retrieve transforms of tables. When transform does not
-    exist, it will be created.
-    
-    - df.sk.transform() method supports generic Scikit-Learn compliant
-      contextual transforms to a dataframe
-    
-    - df.sk.model() method supports applying SciKit-Learn compliant estimators
+    Convenience accessor for applying sklearn transforms to dataframes.
 
     example:
-    X = X.tf.pipe(StandardScaler().fit_transform)
-    Xpca = X.tf.pca()
+    df = df.sk.pipe(StandardScaler().fit_transform)
+    Xpca = X.sk.pca()
 
     In this way, transforms stay fully contextualized by the dataframe
     indices
@@ -38,23 +68,24 @@ class SciKitAccessor():
         DataFrame column labels absolutely must be strings
         Column names are preserved for restructuring
         """
-        self._df = pd.concat(
-            [df.select_dtypes(exclude=object).apply(pd.to_numeric, errors="coerce"),
-             df.select_dtypes(include=object).applymap(lambda x: str(x))],
-             axis=1
-        )
-        self._col_names = df.columns.names
-        self._df = self._serialize_columns(self._df)
+#        self._df = pd.concat(
+#            [df.select_dtypes(include=np.number).apply(pd.to_numeric, errors="coerce"),
+#             # also handle categorical/sparse cols
+#             df.select_dtypes(include=object).applymap(lambda x: str(x))],
+#             axis=1
+#        ) #reorders columns by type....
+        self._df = _serialize_columns(df)
     
-    @staticmethod
-    def _serialize_columns(df: pd.DataFrame):
-        """ensure pandas columns are always a series of strings, even if MultiIndexed"""
-        new_col_labels = []
-        for label in df.columns:
-            new_col_labels.append(json.dumps(label))
-        df.columns=new_col_labels
+    def pipe(self, transformer):
+        transformed_data = transformer(self._df)
+        columns = _deserialize_columns(self._df).columns
+        df = pd.DataFrame(
+            transformed_data,
+            index=self._df.index,
+            columns=columns
+        )
         return df
-
+    
     @staticmethod
     def _gen_transform_tuple(num_transformer=None, obj_transformer=None):
         """generate a 1or2 tuple of 2-tuples"""
@@ -72,30 +103,6 @@ class SciKitAccessor():
         else:
             raise ValueError("Specify at least one compliant transformer")
         return ct_list
-
-    @staticmethod
-    def _deserialize_columns(df: pd.DataFrame):
-        """
-        reconstruct tuple from earlier json.dumps prefixing
-        the highest level label names as needed
-        """
-        def prefix_last_label(prefix_label):
-            if prefix_label[0] == "[":
-                return prefix_label
-            else:
-                ll = re.split("__", prefix_label)
-                sll = list(re.split(",", ll[-1]))
-                lll = sll[-1]
-                lll = lll.insert(1, ll[:-1]+"__")
-                last = "".join(lll)
-                sll[-1] = last
-                return "".join(sll)
-        final_col_labels = []
-        for dump_label in df.columns:
-            ready_label = prefix_last_label(dump_label)
-            final_col_labels.append(tuple(json.loads(ready_label)))
-        df.columns = pd.MultiIndex.from_tuples(final_col_labels)
-        return df
 
     def _fit(self, num_transformer, obj_transformer):
         ct = make_column_transformer(*self._gen_transform_tuple(num_transformer,
@@ -165,6 +172,13 @@ class SciKitAccessor():
 @pd.api.extensions.register_dataframe_accessor("model")
 class ModelAccessor():
     """
+    
+    - df.sk.transform() method supports generic Scikit-Learn compliant
+      contextual transforms to a dataframe
+    
+    - df.sk.model() method supports applying SciKit-Learn compliant estimators
+
+
     Generate models of tables based on other tables
     
     automates the construction of a sklearn compliant pipeline. This includes:
