@@ -14,38 +14,44 @@ from sklearn.compose import make_column_selector
 def _serialize_columns(df:pd.DataFrame):
     """
     Ensure pandas columns are always a series of strings, even if
-    MultiIndexed.
-    Base method useful for circumventing column name futurewarning via
-    yogi decorator.
+    MultiIndexed. Mutates the dataframe directly.
+    Useful for circumventing column name futurewarning.
     """
+    names = df.columns.names
     new_col_labels = []
     for label in df.columns:
         new_col_labels.append(json.dumps(label))
     df.columns=new_col_labels
-    return df
+    return names
 
-def _deserialize_columns(df:pd.DataFrame):
+def _prefix_last_label(column_label):
     """
-    reconstruct tuple from earlier json.dumps prefixing
-    the highest level label names as needed
+    handle circumstance where applied transformer modifies the column
+    labels by prefixing it's name
     """
-    def prefix_last_label(prefix_label):
-        if prefix_label[0] == "[":
-            return prefix_label
-        else:
-            ll = re.split("__", prefix_label)
-            sll = list(re.split(",", ll[-1]))
-            lll = sll[-1]
-            lll = lll.insert(1, ll[:-1]+"__")
-            last = "".join(lll)
-            sll[-1] = last
-            return "".join(sll)
+    if column_label[0] == "[":
+        return column_label
+    else:
+        ll = re.split("__", column_label)
+        sll = list(re.split(",", ll[-1]))
+        lll = sll[-1]
+        slll = re.split("", lll)
+        lll = slll.insert(1, ll[:-1]+"__")
+        last = "".join(lll)
+        sll[-1] = last
+        return "".join(sll)
+
+def _deserialize_columns(df:pd.DataFrame, names=None):
+    """
+    reconstruct tuple from earlier json.dumps prefixing the innermost
+    (highest) level label names as needed.  Mutates the dataframe
+    directly.
+    """
     final_col_labels = []
     for dump_label in df.columns:
-        ready_label = prefix_last_label(dump_label)
+        ready_label = _prefix_last_label(dump_label)
         final_col_labels.append(tuple(json.loads(ready_label)))
-    df.columns = pd.MultiIndex.from_tuples(final_col_labels)
-    return df
+    df.columns = pd.MultiIndex.from_tuples(final_col_labels, names=names)
 
 @pd.api.extensions.register_dataframe_accessor("sk")
 class SciKitAccessor():
@@ -74,18 +80,25 @@ class SciKitAccessor():
 #             df.select_dtypes(include=object).applymap(lambda x: str(x))],
 #             axis=1
 #        ) #reorders columns by type....
-        self._df = _serialize_columns(df)
+        self._df = df
     
     def pipe(self, transformer):
+        #do not mutate the damned df...
+        names = _serialize_columns(self._df)
         transformed_data = transformer(self._df)
-        columns = _deserialize_columns(self._df).columns
+        _deserialize_columns(self._df, names=names)
         df = pd.DataFrame(
             transformed_data,
             index=self._df.index,
-            columns=columns
+            columns=self._df.columns
         )
         return df
     
+@pd.api.extensions.register_dataframe_accessor("old")
+class Old():
+    def __init__(self, df):
+        pass
+
     @staticmethod
     def _gen_transform_tuple(num_transformer=None, obj_transformer=None):
         """generate a 1or2 tuple of 2-tuples"""
