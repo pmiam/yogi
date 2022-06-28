@@ -7,10 +7,10 @@ authors = ["Panayotis Manganaris <panos.manganaris@gmail.com>"]
 [tool.poetry.dependencies]
 python = ">=3.7.7,<3.11"
 pandas = ">=1.3.4"
+scikit-learn = "^1.0.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
-scikit-learn = "^1.0.2"
 jupyter = "^1.0.0"
 
 [build-system]
