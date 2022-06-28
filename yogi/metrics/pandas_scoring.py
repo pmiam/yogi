@@ -3,6 +3,8 @@ from typing import Union
 import pandas as pd
 import numpy as np
 
+from sklearn.base import clone
+
 class PandasScoreAdaptor():
     def __init__(self, sk_metric):
         """
@@ -57,3 +59,33 @@ def batch_score(estimator,
     for name, scorer in scorer_dict.items():
         scores[name] = scorer(estimator, X, y)
     return scores
+
+def test_generality(estimator, groupKfold, scorings:dict,
+                    X_tr, y_tr, groups_tr, groups_tr_labels,
+                    X_ts, y_ts, groups_ts, groups_ts_labels):
+    """
+    tests an estimator's ability to extrapolate across categorical labels in a dataset.
+    Score results are reported in a table. multiple scoring metrics can be defined.
+    The categories must be provided both ordinarily and categorically for the time being.
+    """
+    estimator = clone(estimator) #unfitted, cloned params
+    gentpl = groupKfold.split(X_tr, y_tr, groups=groups_tr), groupKfold.split(X_ts, y_ts, groups=groups_ts)
+    #train and test index generators, in order
+    val_scores = []
+    tst_scores = []
+    for train_idx, val_idx, _, tst_idx in [sum(gengroup, ()) for gengroup in zip(*gentpl)]:
+        tr_val_group_names = groups_tr_labels.iloc[val_idx].unique()
+        ts_group_names = groups_ts_labels.iloc[tst_idx].unique()
+        #fit to tr part
+        estimator.fit(X_tr.iloc[train_idx], y_tr.iloc[train_idx])
+        #get val and test scores
+        tr_val_score_series = pd.Series(batch_score(estimator, X_tr.iloc[val_idx], y_tr.iloc[val_idx], **scorings))
+        tr_val_score_series.name="_&_".join(tr_val_group_names)
+        ts_score_series = pd.Series(batch_score(estimator, X_ts.iloc[tst_idx], y_ts.iloc[tst_idx], **scorings))
+        ts_score_series.name="_&_".join(ts_group_names)
+        val_scores.append(tr_val_score_series)
+        tst_scores.append(ts_score_series)
+    tr_val_scores = pd.concat(val_scores, axis=1).assign(partition="validation")
+    ts_scores = pd.concat(tst_scores, axis=1).assign(partition="test")
+    group_scores = pd.concat([tr_val_scores, ts_scores]).round(5).drop_duplicates(keep="first")
+    return group_scores
