@@ -5,13 +5,14 @@ description = "Apply familiar scikit-learn, tensorflow, etc. workflows to pandas
 authors = ["Panayotis Manganaris <panos.manganaris@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = ">=3.7.7,<3.11"
+python = "^3.7.7"
 pandas = ">=1.3.4"
-scikit-learn = "^1.0.2"
+scikit-learn = {version = "^1.0.2", optional = true}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^5.2"
 jupyter = "^1.0.0"
+scikit-learn = "1.0.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
