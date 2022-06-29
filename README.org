@@ -55,6 +55,9 @@ cmcl is very early in development.
 yogi can be installed into a standard python environment.  It is a
 poetry project and may be installed using pip.
 
+poetry has minimal runtime dependencies. sklearn is technically
+optional, but most yogi functions don't make much sense without it.
+
 proceed to run your python process/jupyter kernel of choice and enjoy.
 * Contribution
 Yes Please.
