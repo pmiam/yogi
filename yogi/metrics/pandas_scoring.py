@@ -3,8 +3,6 @@ from typing import Union
 import pandas as pd
 import numpy as np
 
-from sklearn.base import clone
-
 class PandasScoreAdaptor():
     def __init__(self, sk_metric):
         """
@@ -68,7 +66,6 @@ def test_generality(estimator, groupKfold, scorings:dict,
     Score results are reported in a table. multiple scoring metrics can be defined.
     The categories must be provided both ordinarily and categorically for the time being.
     """
-    estimator = clone(estimator) #unfitted, cloned params
     gentpl = groupKfold.split(X_tr, y_tr, groups=groups_tr), groupKfold.split(X_ts, y_ts, groups=groups_ts)
     #train and test index generators, in order
     val_scores = []
