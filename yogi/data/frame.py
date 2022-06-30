@@ -11,47 +11,6 @@ import re
 from sklearn.compose import make_column_transformer
 from sklearn.compose import make_column_selector
 
-def _serialize_columns(df:pd.DataFrame):
-    """
-    Ensure pandas columns are always a series of strings, even if
-    MultiIndexed. Mutates the dataframe directly.
-    Useful for circumventing column name futurewarning.
-    """
-    names = df.columns.names
-    new_col_labels = []
-    for label in df.columns:
-        new_col_labels.append(json.dumps(label))
-    df.columns=new_col_labels
-    return names
-
-def _prefix_last_label(column_label):
-    """
-    handle circumstance where applied transformer modifies the column
-    labels by prefixing it's name
-    """
-    if column_label[0] == "[":
-        return column_label
-    else:
-        ll = re.split("__", column_label)
-        sll = list(re.split(",", ll[-1]))
-        lll = sll[-1]
-        slll = re.split("", lll)
-        lll = slll.insert(1, ll[:-1]+"__")
-        last = "".join(lll)
-        sll[-1] = last
-        return "".join(sll)
-
-def _deserialize_columns(df:pd.DataFrame, names=None):
-    """
-    reconstruct tuple from earlier json.dumps prefixing the innermost
-    (highest) level label names as needed.  Mutates the dataframe
-    directly.
-    """
-    final_col_labels = []
-    for dump_label in df.columns:
-        ready_label = _prefix_last_label(dump_label)
-        final_col_labels.append(tuple(json.loads(ready_label)))
-    df.columns = pd.MultiIndex.from_tuples(final_col_labels, names=names)
 
 @pd.api.extensions.register_dataframe_accessor("sk")
 class SciKitAccessor():
@@ -84,9 +43,7 @@ class SciKitAccessor():
     
     def pipe(self, transformer):
         #do not mutate the damned df...
-        names = _serialize_columns(self._df)
         transformed_data = transformer(self._df)
-        _deserialize_columns(self._df, names=names)
         df = pd.DataFrame(
             transformed_data,
             index=self._df.index,
