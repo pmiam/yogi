@@ -5,13 +5,6 @@ logging.basicConfig(level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S", format=logf
 import pandas as pd
 import numpy as np
 
-#scikit accessor implementation
-import json
-import re
-from sklearn.compose import make_column_transformer
-from sklearn.compose import make_column_selector
-
-
 @pd.api.extensions.register_dataframe_accessor("sk")
 class SciKitAccessor():
     """
