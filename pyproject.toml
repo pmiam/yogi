@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "yogi"
-version = "0.0.1"
+version = "0.1.1"
 description = "Apply familiar scikit-learn, tensorflow, etc. workflows to pandas dataframes, preserving labels and easing the assessment of model performance"
 authors = ["Panayotis Manganaris <panos.manganaris@gmail.com>"]
 
