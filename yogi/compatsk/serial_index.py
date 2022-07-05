@@ -2,7 +2,13 @@ import pandas as pd
 import json
 import re
 
+def transform_names(estimator, df):
+    """ estimator need not be trained. df can have any column labels """
+    processed_names=estimator[:-1].get_feature_names_out(df.columns.to_list())
+    return processed_names
+
 class SerialMI:
+
     """
     Context manager within which Pandas DataFrame MultiIndexed
     Columns are appropriately indexed with strings obtained by
@@ -27,15 +33,19 @@ class SerialMI:
         self.df = df
 
     def __enter__(self):
-        serial_columns = self._serialize_columns(self.df.columns.to_list())
+        """ allocates resources """
         self._df = pd.DataFrame(self.df.values,
                                 index = self.df.index,
-                                columns = serial_columns
+                                columns = self._serialize_columns(
+                                    self.df.columns.to_list()
+                                )
                                 )
         return self._df
+    #careful, this is returned in the as clause of the with statement
+    #if any, therefore it is assigned in the user's name space.
 
     def __exit__(self, type, value, traceback):
-        """ anticipate possible column mismatch, de-allocate resources """
+        """ de-allocate resources, handle possible errors """
         return True
 
     def _serialize_columns(self, columns:list):
