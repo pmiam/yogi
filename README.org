@@ -16,18 +16,37 @@
 This README also serves as a design document. Any heading marked TODO
 may as well be wishful thinking.
 
-yogi is a pandas extension intended to ease the process of performing
-machine learning using standard libraries, and analyzing the tabulated
-results, while retaining the convenience and power of the pandas data
-management system.
+The yogi library contains tools which ease the process of performing
+machine learning while using the helpful pandas data structures.
 
-It focuses on preserving the intuitive pandas API for implementing
-feature engineering and machine learning workflows
+It also contains reasonably generic tabulation functions meant to
+analyze the results of sklearn-compliant models.
+
+It focuses on preserving or utilizing the inquisitive pandas API.
 
 It leverages the Pandas table representations to ensure data is never
 presented to the user as an inscrutable array, hopefully accelerating
 model design and exploration and improving the readability and
-share-ability of research scripts
+share-ability of research scripts.
+
+Of course, production models should be implemented with a lighter
+data structure
+* Name Space
+** Model Selection
+tabulation functions meant to help with performing grid search
+** pandas scoring
+objects helpful for implementing selective scoring in sklearn
+optimizers trained on pandas data structures.
+** models
+ill conceived, defunct
+** transforms
+convenience functions for leveraging pandas's database-style merging
+to create relational data sets.
+** data
+a place for dataframe accessors, unused
+** compatsk
+might put a decorator down here to reduce the clutter of typical
+pandas-based training workflows
 * NEXT Models
 :STATUSLOG:
 - State "NEXT"       from              [2022-02-13 Sun 16:02]
