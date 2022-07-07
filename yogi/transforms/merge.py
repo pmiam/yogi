@@ -48,3 +48,18 @@ def join3(left:pd.DataFrame, middle:pd.DataFrame, right:pd.DataFrame,
     return derived
 
 #make this a suitable function to feed to the df.transform method??
+
+def robust_compare(compare1, on1, compare2, on2, how='inner', suf1='x', suf2='y'):
+    """from comparisons, should add to yogi
+    be careful, make sure that the difference between on1 and on2 is not too excessive
+    """
+    df1 = pd.concat([compare1, on1], axis=1)
+    df2 = pd.concat([compare2, on2], axis=1)
+    intersection = [v for v in on1.columns.to_list() if v in on2.columns.to_list()]
+    difference = [v for v in on1.columns.to_list() + on2.columns.to_list() if v not in intersection]
+    join = pd.merge(df1, df2, on=intersection,
+                    how=how, suffixes=("_"+suf1, "_"+suf2))
+    if difference:
+        return join[join[difference].isna().agg('prod', axis=1).apply(bool)]
+    else:
+        return join
