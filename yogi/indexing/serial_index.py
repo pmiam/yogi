@@ -1,6 +1,32 @@
 import pandas as pd
+import numpy as np
+
 import json
 import re
+
+def strings_where(content:np.ndarray,
+                  containing:np.ndarray,
+                  how:str='all')->np.ndarray:
+    """
+    content is a 2d array of strings.
+    containing is a 1d array of string.
+
+    If strings in containing contain the strings in a slice along axis
+    0 of content, the indices of the containing strings are returned.
+
+    set how to 'all' or 'any' for threshold constant criterion.
+    """
+    mask_containing = np.empty(sum([containing.shape, content.shape], ()), dtype='?')
+    for j in range(containing.shape[0]):
+        for i in range(content.shape[0]):
+            for k in range(content.shape[1]):
+                mask_containing[j,i,k] = content[i,k] in containing[j]
+    if how=='all':
+        mask_containing = mask_containing.prod(axis=2).sum(axis=1)
+    elif how=='any': 
+        mask_containing = mask_containing.sum(axis=2).sum(axis=1)
+
+    return np.argwhere(mask_containing).flatten()
 
 def transform_names(estimator, df):
     """ estimator need not be trained. df can have any column labels """
