@@ -3,6 +3,8 @@ from typing import Union
 import pandas as pd
 import numpy as np
 
+import copy
+
 class PandasScoreAdaptor():
     def __init__(self, sk_metric):
         """
@@ -71,14 +73,19 @@ def test_generality(estimator, groupKfold, scorings:dict,
     val_scores = []
     tst_scores = []
     for train_idx, val_idx, _, tst_idx in [sum(gengroup, ()) for gengroup in zip(*gentpl)]:
+        fresh_estimator = copy.deepcopy(estimator) #start from scratch each training cycle
         tr_val_group_names = groups_tr_labels.iloc[val_idx].unique()
         ts_group_names = groups_ts_labels.iloc[tst_idx].unique()
         #fit to tr part
-        estimator.fit(X_tr.iloc[train_idx], y_tr.iloc[train_idx])
+        fresh_estimator.fit(X_tr.iloc[train_idx], y_tr.iloc[train_idx])
         #get val and test scores
-        tr_val_score_series = pd.Series(batch_score(estimator, X_tr.iloc[val_idx], y_tr.iloc[val_idx], **scorings))
+        tr_val_score_series = pd.Series(
+            batch_score(fresh_estimator, X_tr.iloc[val_idx], y_tr.iloc[val_idx], **scorings)
+        )
         tr_val_score_series.name="_&_".join(tr_val_group_names)
-        ts_score_series = pd.Series(batch_score(estimator, X_ts.iloc[tst_idx], y_ts.iloc[tst_idx], **scorings))
+        ts_score_series = pd.Series(
+            batch_score(fresh_estimator, X_ts.iloc[tst_idx], y_ts.iloc[tst_idx], **scorings)
+        )
         ts_score_series.name="_&_".join(ts_group_names)
         val_scores.append(tr_val_score_series)
         tst_scores.append(ts_score_series)
