@@ -3,7 +3,7 @@ from typing import Union
 import pandas as pd
 import numpy as np
 
-import copy
+from sklearn.base import clone
 
 class PandasScoreAdaptor():
     def __init__(self, sk_metric):
@@ -73,7 +73,7 @@ def test_generality(estimator, groupKfold, scorings:dict,
     val_scores = []
     tst_scores = []
     for train_idx, val_idx, _, tst_idx in [sum(gengroup, ()) for gengroup in zip(*gentpl)]:
-        fresh_estimator = copy.deepcopy(estimator) #start from scratch each training cycle
+        fresh_estimator = clone(estimator) #start from scratch each training cycle
         tr_val_group_names = groups_tr_labels.iloc[val_idx].unique()
         ts_group_names = groups_ts_labels.iloc[tst_idx].unique()
         #fit to tr part
