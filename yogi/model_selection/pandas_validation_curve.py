@@ -32,8 +32,7 @@ def pandas_validation_curve(curve_maker, *args, **kwargs) -> pd.DataFrame:
       simultaneous scoring
     otherwise, pass compliant scoring functions or recognized strings
     
-    Returns a dataframe of validation results which can be readily
-    plotted using the pandas ecosystem of EDA tools namely seaborn.
+    Returns dataframe of validation results to be readily plotted.
     """
     scoring = kwargs.get('scoring', None)
     kwargs['scoring'] = None
