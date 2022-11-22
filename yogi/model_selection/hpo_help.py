@@ -41,14 +41,21 @@ def rank_score(setting:str, finalists_ranks:pd.DataFrame, weights=None) -> float
     if weights == None:
         weights = [1]*finalists_ranks.shape[1] 
     try:
-        rank_scores_per_metric = finalists_ranks.applymap(lambda x: x**-1).loc[setting]
-        weighted_rank_scores_per_metric = np.dot(rank_scores_per_metric, weights)
+        names = finalists_ranks.select_dtypes(np.number).columns.to_list()
+        param = [col for col in finalists_ranks.columns.to_list() if not col in names]
+        finalists_ranks_copy = finalists_ranks.copy()
+        finalists_ranks_copy[names] = finalists_ranks_copy[names].applymap(lambda x: x**-1)
+        # ALERT! Without copy finalists_ranks data would mutate with every call of rank_score
+        rank_scores_per_metric = finalists_ranks_copy.loc[finalists_ranks_copy[param[0]]==setting, :]
+        weighted_rank_scores_per_metric = np.dot(
+            rank_scores_per_metric.drop(param[0], axis=1),
+            weights
+        )
         return np.sum(weighted_rank_scores_per_metric)
     except KeyError: 
         #if a certain setting doesn't make it to finals at all, there'll be a KeyError
         #instead, ranking it zero
         return 0
-
 
 def score(setting:str, finalists_settings:pd.Series, finalists_ranks:pd.DataFrame, weights=None) -> float:
     return get_prob(setting, finalists_settings) + rank_score(setting, finalists_ranks, weights)
@@ -77,13 +84,15 @@ def reduce_grid_via_entropy_rules(grid:dict,
                                   podium:pd.DataFrame,
                                   weights=None,
                                   strategy:str="oavg") -> dict:
-    finalists_ranks = podium.filter(like='rank', axis=1)
     new_grid = {}
     grid_scores = {}
     for param, settings in grid.items():
+        finalists_ranks = podium.filter(like='rank', axis=1)
         finalists_settings = podium.filter(like=param, axis=1).iloc[:,0]
-        finalists_ranks = finalists_ranks.set_index(
-            podium.filter(like=param, axis=1).iloc[:,0])
+        finalists_ranks = pd.concat(
+            [finalists_ranks, podium.filter(like=param, axis=1)],
+            axis=1
+        ) # pd.concat inherently copies
         if grid_entropy_series[param] == 0.0:
             if len(settings) == 1:
                 new_grid[param] = settings
@@ -92,11 +101,13 @@ def reduce_grid_via_entropy_rules(grid:dict,
         elif pd.isna(grid_entropy_series[param]):
             pass
         else:
-            reduced, scores = reduce_grid_via_scoring_heuristic(settings,
-                                                                finalists_settings,
-                                                                finalists_ranks,
-                                                                weights=weights,
-                                                                strategy=strategy)
+            reduced, scores = reduce_grid_via_scoring_heuristic(
+                settings,
+                finalists_settings,
+                finalists_ranks,
+                weights=weights,
+                strategy=strategy
+            )
             new_grid[param] = reduced
             grid_scores[param] = scores
     return new_grid, grid_scores
