@@ -60,36 +60,45 @@ def batch_score(estimator,
         scores[name] = scorer(estimator, X, y)
     return scores
 
-def test_generality(estimator, groupKfold, scorings:dict,
-                    X_tr, y_tr, groups_tr, groups_tr_labels,
-                    X_ts, y_ts, groups_ts, groups_ts_labels):
+def _mkname(alist, blist):
+    if len(alist) <= 5:
+        name = "_&_".join(alist)
+    elif len(blist) <=5:
+        name = f'except {"_&_".join(blist)}'
+    else:
+        name = f'{len(alist)} samples'
+    return name
+
+def run_cv_report(estimator, cv, scorings:dict,
+                  X, Y, groups=None, groups_labels=None):
     """
-    tests an estimator's ability to extrapolate across categorical labels in a dataset.
-    Score results are reported in a table. multiple scoring metrics can be defined.
-    The categories must be provided both ordinarily and categorically for the time being.
+    test an estimator's ability to extrapolate using cross-validation in a dataset.
+
+    optionally test across categories using group-aware cross-validators.
+    in this case, categories must be provided both as ordinal and categorical labels for the time being.
+
+    Score results are reported in a table for granular review. multiple scoring metrics can be used.
     """
-    gentpl = groupKfold.split(X_tr, y_tr, groups=groups_tr), groupKfold.split(X_ts, y_ts, groups=groups_ts)
+    gen = cv.split(X, Y, groups=groups)
     #train and test index generators, in order
-    val_scores = []
+    trn_scores = []
     tst_scores = []
-    for train_idx, val_idx, _, tst_idx in [sum(gengroup, ()) for gengroup in zip(*gentpl)]:
+    for trn_idx, tst_idx in gen:
         fresh_estimator = clone(estimator) #start from scratch each training cycle
-        tr_val_group_names = groups_tr_labels.iloc[val_idx].unique()
-        ts_group_names = groups_ts_labels.iloc[tst_idx].unique()
-        #fit to tr part
-        fresh_estimator.fit(X_tr.iloc[train_idx], y_tr.iloc[train_idx])
-        #get val and test scores
-        tr_val_score_series = pd.Series(
-            batch_score(fresh_estimator, X_tr.iloc[val_idx], y_tr.iloc[val_idx], **scorings)
+        trn_names = groups_labels.iloc[trn_idx].unique()
+        tst_names = groups_labels.iloc[tst_idx].unique()
+        fresh_estimator.fit(X.iloc[trn_idx], Y.iloc[trn_idx])
+        trn_score_series = pd.Series(
+            batch_score(fresh_estimator, X.iloc[trn_idx], Y.iloc[trn_idx], **scorings)
         )
-        tr_val_score_series.name="_&_".join(tr_val_group_names)
-        ts_score_series = pd.Series(
-            batch_score(fresh_estimator, X_ts.iloc[tst_idx], y_ts.iloc[tst_idx], **scorings)
+        trn_score_series.name=_mkname(trn_names, tst_names)
+        tst_score_series = pd.Series(
+            batch_score(fresh_estimator, X.iloc[tst_idx], Y.iloc[tst_idx], **scorings)
         )
-        ts_score_series.name="_&_".join(ts_group_names)
-        val_scores.append(tr_val_score_series)
-        tst_scores.append(ts_score_series)
-    tr_val_scores = pd.concat(val_scores, axis=1).assign(partition="validation")
-    ts_scores = pd.concat(tst_scores, axis=1).assign(partition="test")
-    group_scores = pd.concat([tr_val_scores, ts_scores]).round(5).drop_duplicates(keep="first")
+        tst_score_series.name=_mkname(tst_names, trn_names)
+        trn_scores.append(trn_score_series)
+        tst_scores.append(tst_score_series)
+    trn_scores = pd.concat(trn_scores, axis=1).T.assign(partition="train")
+    tst_scores = pd.concat(tst_scores, axis=1).T.assign(partition="test")
+    group_scores = pd.concat([trn_scores, tst_scores])
     return group_scores
